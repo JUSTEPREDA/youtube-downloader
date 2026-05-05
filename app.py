@@ -8,7 +8,16 @@ import threading
 
 app = Flask(__name__)
 
-COOKIES_FILE = "/etc/secrets/cookies.txt"
+import base64
+
+COOKIES_FILE = None
+_cookies_b64 = os.environ.get("COOKIES_B64", "")
+if _cookies_b64:
+    import tempfile as _tf
+    _f = _tf.NamedTemporaryFile(delete=False, suffix=".txt", mode="w")
+    _f.write(base64.b64decode(_cookies_b64).decode())
+    _f.close()
+    COOKIES_FILE = _f.name
 
 progress_store = {}
 
