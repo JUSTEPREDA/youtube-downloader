@@ -136,4 +136,5 @@ def get_file(job_id):
     return send_file(filepath, as_attachment=True, download_name=filename)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port, debug=False)
