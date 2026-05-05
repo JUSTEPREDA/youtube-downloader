@@ -8,7 +8,8 @@ import threading
 
 app = Flask(__name__)
 
-# Stocke la progression de chaque téléchargement
+COOKIES_FILE = "/etc/secrets/cookies.txt"
+
 progress_store = {}
 
 def make_progress_hook(job_id):
@@ -42,7 +43,11 @@ def get_info():
     if not url:
         return jsonify({"error": "URL manquante"}), 400
     try:
-        ydl_opts = {"quiet": True, "no_warnings": True}
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "cookiefile": COOKIES_FILE,
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             return jsonify({
@@ -76,6 +81,7 @@ def start_download():
                     "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
                     "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
                     "progress_hooks": [make_progress_hook(job_id)],
+                    "cookiefile": COOKIES_FILE,
                     "quiet": True,
                 }
             else:
@@ -91,6 +97,7 @@ def start_download():
                     "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
                     "merge_output_format": "mp4",
                     "progress_hooks": [make_progress_hook(job_id)],
+                    "cookiefile": COOKIES_FILE,
                     "quiet": True,
                 }
 
