@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YT Downloader</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #ff2b2b;
+    --red-dark: #c0000a;
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --muted: #888;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 20px 60px;
+  }
+  header {
+    width: 100%;
+    max-width: 760px;
+    padding: 60px 0 50px;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: var(--red);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 26px; height: 26px; fill: white; }
+  h1 { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; letter-spacing: 2px; line-height: 1; }
+  h1 span { color: var(--red); }
+  .subtitle { color: var(--muted); font-size: 0.95rem; margin-top: 8px; font-weight: 300; }
+
+  .card {
+    width: 100%; max-width: 760px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+  }
+  .input-row { display: flex; gap: 12px; }
+  .url-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .url-input:focus { border-color: var(--red); }
+  .url-input::placeholder { color: var(--muted); }
+  .btn-analyse {
+    background: var(--red); color: white; border: none;
+    border-radius: 12px; padding: 14px 24px;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 1px;
+    cursor: pointer; transition: background 0.2s, transform 0.1s; white-space: nowrap;
+  }
+  .btn-analyse:hover { background: var(--red-dark); }
+  .btn-analyse:active { transform: scale(0.97); }
+
+  .options { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .option-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
+  .option-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  select {
+    background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    outline: none; cursor: pointer; transition: border-color 0.2s;
+  }
+  select:focus { border-color: var(--red); }
+
+  .preview { display: none; margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--border); gap: 20px; align-items: flex-start; }
+  .preview.show { display: flex; }
+  .preview-thumb { width: 160px; min-width: 160px; height: 90px; border-radius: 10px; object-fit: cover; }
+  .preview-info { flex: 1; }
+  .preview-title { font-size: 1rem; font-weight: 500; line-height: 1.4; margin-bottom: 6px; }
+  .preview-meta { font-size: 0.82rem; color: var(--muted); margin-bottom: 16px; }
+
+  .btn-download {
+    background: var(--red); color: white; border: none;
+    border-radius: 12px; padding: 13px 28px;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 1px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn-download:hover { background: var(--red-dark); }
+  .btn-download:active { transform: scale(0.97); }
+  .btn-download:disabled { background: #444; cursor: not-allowed; transform: none; }
+
+  /* Progress */
+  .progress-section { display: none; margin-top: 20px; }
+  .progress-section.show { display: block; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .progress-label { font-size: 0.85rem; color: var(--muted); }
+  .progress-percent { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; color: var(--red); }
+  .progress-track { background: var(--surface2); border-radius: 999px; height: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--red); border-radius: 999px; width: 0%; transition: width 0.4s ease; }
+  .progress-details { display: flex; gap: 20px; margin-top: 8px; }
+  .progress-stat { font-size: 0.78rem; color: var(--muted); }
+  .progress-stat span { color: var(--text); font-weight: 500; }
+
+  .status { margin-top: 12px; font-size: 0.85rem; color: var(--muted); min-height: 20px; }
+  .status.error { color: var(--red); }
+  .status.success { color: #4caf50; }
+
+  .steps {
+    width: 100%; max-width: 760px; margin-top: 40px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  .step-num { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--red); line-height: 1; margin-bottom: 8px; }
+  .step-title { font-weight: 500; font-size: 0.9rem; margin-bottom: 4px; }
+  .step-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+
+  @media (max-width: 600px) {
+    .steps { grid-template-columns: 1fr; }
+    .input-row { flex-direction: column; }
+    .preview { flex-direction: column; }
+    .preview-thumb { width: 100%; min-width: 0; height: 180px; }
+    h1 { font-size: 2.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.26 8.26 0 0 0 4.84 1.55V6.79a4.85 4.85 0 0 1-1.07-.1z"/></svg>
+    </div>
+    <h1>YT <span>DOWN</span></h1>
+  </div>
+  <p class="subtitle">Télécharge tes vidéos YouTube en haute qualité, sans pubs.</p>
+</header>
+
+<div class="card">
+  <div class="input-row">
+    <input class="url-input" id="urlInput" type="text" placeholder="Colle le lien YouTube ici..."/>
+    <button class="btn-analyse" onclick="analyseVideo()">ANALYSER</button>
+  </div>
+  <div class="options">
+    <div class="option-group">
+      <span class="option-label">Format</span>
+      <select id="formatSelect">
+        <option value="mp4">🎬 MP4 — Vidéo</option>
+        <option value="mp3">🎵 MP3 — Audio</option>
+      </select>
+    </div>
+    <div class="option-group">
+      <span class="option-label">Qualité</span>
+      <select id="qualitySelect">
+        <option value="best">⭐ Meilleure qualité</option>
+        <option value="720">📺 720p</option>
+        <option value="480">📱 480p</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="preview" id="preview">
+    <img class="preview-thumb" id="previewThumb" src="" alt="thumbnail"/>
+    <div class="preview-info">
+      <div class="preview-title" id="previewTitle"></div>
+      <div class="preview-meta" id="previewMeta"></div>
+      <button class="btn-download" id="downloadBtn" onclick="startDownload()">
+        ⬇ TÉLÉCHARGER
+      </button>
+    </div>
+  </div>
+
+  <div class="progress-section" id="progressSection">
+    <div class="progress-header">
+      <span class="progress-label" id="progressLabel">Téléchargement en cours...</span>
+      <span class="progress-percent" id="progressPercent">0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-details">
+      <div class="progress-stat">Vitesse : <span id="progressSpeed">--</span></div>
+      <div class="progress-stat">Temps restant : <span id="progressEta">--</span></div>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+</div>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">01</div>
+    <div class="step-title">Colle le lien</div>
+    <div class="step-desc">Copie l'URL de n'importe quelle vidéo YouTube et colle-la dans le champ.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">02</div>
+    <div class="step-title">Choisis le format</div>
+    <div class="step-desc">MP4 pour la vidéo complète, MP3 pour extraire uniquement l'audio.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">03</div>
+    <div class="step-title">Télécharge</div>
+    <div class="step-desc">Suit la progression en temps réel et récupère ton fichier en haute qualité.</div>
+  </div>
+</div>
+
+<script>
+  function formatDuration(s) {
+    const m = Math.floor(s / 60), sec = s % 60;
+    return `${m}:${sec.toString().padStart(2,'0')}`;
+  }
+  function formatSpeed(bps) {
+    if (!bps) return '--';
+    if (bps > 1024*1024) return (bps/1024/1024).toFixed(1) + ' MB/s';
+    return (bps/1024).toFixed(0) + ' KB/s';
+  }
+  function formatEta(s) {
+    if (!s) return '--';
+    if (s < 60) return s + 's';
+    return Math.floor(s/60) + 'min ' + (s%60) + 's';
+  }
+
+  async function analyseVideo() {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) { setStatus('Colle un lien YouTube !', 'error'); return; }
+    setStatus('Analyse en cours...', '');
+    document.getElementById('preview').classList.remove('show');
+    try {
+      const res = await fetch('/info', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url})
+      });
+      const data = await res.json();
+      if (data.error) { setStatus('Erreur : ' + data.error, 'error'); return; }
+      document.getElementById('previewThumb').src = data.thumbnail;
+      document.getElementById('previewTitle').textContent = data.title;
+      document.getElementById('previewMeta').textContent = `${data.uploader} • ${formatDuration(data.duration)}`;
+      document.getElementById('preview').classList.add('show');
+      setStatus('', '');
+    } catch(e) { setStatus('Impossible de contacter le serveur.', 'error'); }
+  }
+
+  async function startDownload() {
+    const url = document.getElementById('urlInput').value.trim();
+    const format = document.getElementById('formatSelect').value;
+    const quality = document.getElementById('qualitySelect').value;
+    const btn = document.getElementById('downloadBtn');
+
+    btn.disabled = true;
+    btn.textContent = 'Préparation...';
+    document.getElementById('progressSection').classList.add('show');
+    setStatus('', '');
+
+    try {
+      const res = await fetch('/start_download', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url, format, quality})
+      });
+      const data = await res.json();
+      if (data.error) { setStatus('Erreur : ' + data.error, 'error'); resetBtn(); return; }
+
+      const jobId = data.job_id;
+      const evtSource = new EventSource(`/progress/${jobId}`);
+
+      evtSource.onmessage = function(e) {
+        const info = JSON.parse(e.data);
+
+        document.getElementById('progressFill').style.width = info.percent + '%';
+        document.getElementById('progressPercent').textContent = info.percent + '%';
+        document.getElementById('progressSpeed').textContent = formatSpeed(info.speed);
+        document.getElementById('progressEta').textContent = formatEta(info.eta);
+
+        if (info.status === 'processing') {
+          document.getElementById('progressLabel').textContent = 'Fusion audio/vidéo...';
+        } else if (info.status === 'done') {
+          evtSource.close();
+          document.getElementById('progressLabel').textContent = 'Terminé !';
+          setStatus('✅ Téléchargement terminé !', 'success');
+          window.location.href = `/get_file/${jobId}`;
+          resetBtn();
+        } else if (info.status === 'error') {
+          evtSource.close();
+          setStatus('Erreur : ' + info.error, 'error');
+          resetBtn();
+        }
+      };
+
+    } catch(e) { setStatus('Erreur lors du démarrage.', 'error'); resetBtn(); }
+  }
+
+  function resetBtn() {
+    const btn = document.getElementById('downloadBtn');
+    btn.disabled = false;
+    btn.textContent = '⬇ TÉLÉCHARGER';
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status ' + type;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('urlInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') analyseVideo();
+    });
+  });
+</script>
+</body>
+</html>
