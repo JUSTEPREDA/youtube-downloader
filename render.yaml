@@ -3,7 +3,21 @@ services:
     name: youtube-downloader
     runtime: python
     buildCommand: "pip install -r requirements.txt && apt-get install -y ffmpeg"
-    startCommand: "python app.py"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 2"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      # --- Contournement bot YouTube ---
+      # YT_PO_TOKEN : jeton Proof-of-Origin généré depuis un vrai navigateur.
+      # Procédure : https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide
+      # Ou via l'extension Chrome : https://github.com/YunzheZJU/youtube-po-token-generator
+      # Définir dans Render > Environment > Secret variables
+      - key: YT_PO_TOKEN
+        sync: false
+      # YT_PO_TOKEN_CLIENT : client associé au token (web par défaut)
+      - key: YT_PO_TOKEN_CLIENT
+        value: web
+      # YT_COOKIES_B64 : alternative à cookies.txt — contenu du fichier en base64
+      # Générer avec : base64 -w 0 cookies.txt
+      - key: YT_COOKIES_B64
+        sync: false
