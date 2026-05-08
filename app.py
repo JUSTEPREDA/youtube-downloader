@@ -5,12 +5,62 @@ import tempfile
 import uuid
 import json
 import threading
+import base64
 
 app = Flask(__name__)
 
 COOKIES_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
 
 progress_store = {}
+
+def _get_cookies_file():
+    if os.path.exists(COOKIES_FILE):
+        return COOKIES_FILE
+    # Fallback: cookies encodés en base64 dans la variable d'env YT_COOKIES_B64
+    cookies_b64 = os.environ.get("YT_COOKIES_B64", "")
+    if cookies_b64:
+        tmp_path = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write(base64.b64decode(cookies_b64).decode("utf-8"))
+            return tmp_path
+        except Exception:
+            pass
+    return None
+
+def get_ydl_base_opts():
+    """
+    Options yt-dlp avec contournement du blocage bot YouTube sur IP datacenter.
+
+    Stratégie :
+    - player_client=ios : YouTube vérifie les clients mobiles différemment des
+      navigateurs web. Les IPs datacenter sont moins bloquées par ce chemin.
+    - po_token : jeton de preuve d'origine optionnel, généré depuis un vrai
+      navigateur. Le plus fiable si l'IP est très agressive. À définir via
+      l'env var YT_PO_TOKEN sur Render (voir README pour la procédure).
+    """
+    extractor_args = {
+        "youtube": {
+            "player_client": ["ios"],
+        }
+    }
+
+    po_token = os.environ.get("YT_PO_TOKEN", "")
+    if po_token:
+        po_client = os.environ.get("YT_PO_TOKEN_CLIENT", "web")
+        extractor_args["youtube"]["po_token"] = [f"{po_client}+{po_token}"]
+
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extractor_args": extractor_args,
+    }
+
+    cookies_file = _get_cookies_file()
+    if cookies_file:
+        opts["cookiefile"] = cookies_file
+
+    return opts
 
 def make_progress_hook(job_id):
     def hook(d):
@@ -43,11 +93,7 @@ def get_info():
     if not url:
         return jsonify({"error": "URL manquante"}), 400
     try:
-        ydl_opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "cookiefile": COOKIES_FILE,
-        }
+        ydl_opts = get_ydl_base_opts()
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             return jsonify({
@@ -57,7 +103,10 @@ def get_info():
                 "uploader": info.get("uploader", ""),
             })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        error_msg = str(e)
+        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+            return jsonify({"error": "YouTube a bloqué la requête (détection bot). Vérifiez les cookies ou configurez YT_PO_TOKEN."}), 403
+        return jsonify({"error": error_msg}), 500
 
 @app.route("/start_download", methods=["POST"])
 def start_download():
@@ -75,14 +124,15 @@ def start_download():
 
     def run():
         try:
+            base = get_ydl_base_opts()
+
             if format_type == "mp3":
                 ydl_opts = {
+                    **base,
                     "format": "bestaudio/best",
                     "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
                     "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}],
                     "progress_hooks": [make_progress_hook(job_id)],
-                    "cookiefile": COOKIES_FILE,
-                    "quiet": True,
                 }
             else:
                 if quality == "720":
@@ -93,12 +143,11 @@ def start_download():
                     fmt = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
 
                 ydl_opts = {
+                    **base,
                     "format": fmt,
                     "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
                     "merge_output_format": "mp4",
                     "progress_hooks": [make_progress_hook(job_id)],
-                    "cookiefile": COOKIES_FILE,
-                    "quiet": True,
                 }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -115,8 +164,11 @@ def start_download():
                 progress_store[job_id]['error'] = 'Fichier introuvable après téléchargement'
 
         except Exception as e:
+            error_msg = str(e)
+            if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+                error_msg = "YouTube a bloqué la requête (détection bot). Vérifiez les cookies ou configurez YT_PO_TOKEN."
             progress_store[job_id]['status'] = 'error'
-            progress_store[job_id]['error'] = str(e)
+            progress_store[job_id]['error'] = error_msg
 
     threading.Thread(target=run, daemon=True).start()
     return jsonify({"job_id": job_id})
